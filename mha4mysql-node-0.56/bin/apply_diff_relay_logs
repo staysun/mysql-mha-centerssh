@@ -469,85 +469,6 @@ sub generate_and_send {
   return 0;
 
 }
-##########
-sub generate {
-  unless ( $opt{diff_file_readtolatest} ) {
-    croak "ERROR: --diff_file_readtolatest=<Diff file name> must be set.\n";
-  }
-  my $gen_file_dir = dirname( $opt{diff_file_readtolatest} );
-  MHA::NodeUtil::create_dir_if($gen_file_dir);
-  MHA::NodeUtil::drop_file_if( $opt{diff_file_readtolatest} );
-
-  check_set_relay_dir_endlog();
-  my %status = find_starting_relay_log();
-  if ( $status{status} == $MHA::NodeConst::Target_Has_Received_All_Relay_Logs )
-  {
-    print "Target slave has received all relay logs.\n";
-    return 0;
-  }
-  croak if ( $status{status} != 0 || !$status{start_rlf} );
-
-  my $rc =
-    do_generate( $status{start_rlf}, $status{start_rlp},
-    $opt{diff_file_readtolatest} );
-  return $rc if ( $rc || $opt{command} eq "generate" );
-  return 0;
-
-}
-
-sub send {
-  if ( $opt{command} eq "send" ) {
-    if ( !$opt{scp_user} || !$opt{scp_host} ) {
-      croak "ERROR: --scp_user and --scp_host must be set.\n";
-    }
-  }
-  unless ( $opt{diff_file_readtolatest} ) {
-    croak "ERROR: --diff_file_readtolatest=<Diff file name> must be set.\n";
-  }
-  my $gen_file_dir = dirname( $opt{diff_file_readtolatest} );
-  MHA::NodeUtil::create_dir_if($gen_file_dir);
-  MHA::NodeUtil::drop_file_if( $opt{diff_file_readtolatest} );
-
-  check_set_relay_dir_endlog();
-  my %status = find_starting_relay_log();
-  if ( $status{status} == $MHA::NodeConst::Target_Has_Received_All_Relay_Logs )
-  {
-    print "Target slave has received all relay logs.\n";
-    return 0;
-  }
-  croak if ( $status{status} != 0 || !$status{start_rlf} );
-
-  my $scp_user_host = $opt{scp_user} . '@' . $opt{scp_host};
-  if (
-    $rc = system(
-"ssh $MHA::NodeConst::SSH_OPT_ALIVE $scp_user_host -p $opt{scp_port} \"mkdir -p $gen_file_dir\""
-    )
-    )
-  {
-    my ( $high, $low ) = MHA::NodeUtil::system_rc($rc);
-    croak
-      "ssh $scp_user_host for mkdir $gen_file_dir failed with rc $high:$low!\n";
-  }
-  if (
-    MHA::NodeUtil::file_copy(
-      1,
-      $opt{diff_file_readtolatest},
-      $opt{diff_file_readtolatest},
-      $opt{scp_user}, $opt{scp_host}, undef, $opt{scp_port}
-    )
-    )
-  {
-    croak "ERROR: scp %s:%s to %s(%d) failed!\n", hostname(),
-      $opt{diff_file_readtolatest}, $scp_user_host, $opt{scp_port};
-  }
-  else {
-    printf " scp %s:%s to %s(%d) succeeded.\n", hostname(),
-      $opt{diff_file_readtolatest}, $scp_user_host, $opt{scp_port};
-  }
-  return 0;
-
-}
-##########
 
 sub main() {
   my $exit_code = 1;
@@ -576,17 +497,10 @@ sub main() {
     if ( $opt{command} eq "test" ) {
       croak if ( check() );
     }
-    elsif ( $opt{command} eq "generate_and_send" )
+    elsif ( $opt{command} eq "generate_and_send"
+      || $opt{command} eq "generate" )
     {
       croak if ( generate_and_send() );
-    }
-    elsif ( $opt{command} eq "generate" )
-    {
-      croak if ( generate() );
-    }
-    elsif ( $opt{command} eq "send" )
-    {
-      croak if ( send() );
     }
     elsif ( $opt{command} eq "find" ) {
       $_find_logname_only = 1;
