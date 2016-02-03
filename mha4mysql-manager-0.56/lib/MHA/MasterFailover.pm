@@ -1075,7 +1075,9 @@ sub generate_diff_from_readpos {
   ($high,$low) = exec_ssh_child_cmd( $ssh_user_host, $latest_slave->{ssh_port},
     $command, $logger,
     "$g_workdir/$latest_slave->{hostname}_$latest_slave->{port}.work" );
-  if ( $high == 0 && $low == 0 ) {
+   if ( $high == 0 && $low == 0 ) {
+        $high = 1024;
+        $slow = 1024;
         if (
           MHA::NodeUtil::file_copy(
             0,$target->{diff_file_readtolatest},$target->{diff_file_readtolatest},
@@ -1111,10 +1113,14 @@ sub generate_diff_from_readpos {
           $pplog->info(
 "scp from $target->{ssh_user}@$target->{ssh_ip}:$target->{diff_file_readtolatest} to local:$target->{diff_file_readtolatest} succeeded."
           );
+          $high = 0;
+          $slow = 0;
         }
       }
     
   ######
+}
+  return($high,$slow);
 }
 
 # 0: no need to generate diff
