@@ -1041,7 +1041,7 @@ sub generate_diff_from_readpos {
 "Connecting to the latest slave host $latest_slave->{hostname}, generating diff relay log files.."
   );
   my $command =
-"apply_diff_relay_logs --command=generate_and_send --scp_user=$target->{ssh_user} --scp_host=$target->{ssh_ip} --latest_mlf=$latest_slave->{Master_Log_File} --latest_rmlp=$latest_slave->{Read_Master_Log_Pos} --target_mlf=$target->{Master_Log_File} --target_rmlp=$target->{Read_Master_Log_Pos} --server_id=$latest_slave->{server_id} --diff_file_readtolatest=$target->{diff_file_readtolatest} --workdir=$latest_slave->{remote_workdir} --timestamp=$_start_datetime --handle_raw_binlog=$target->{handle_raw_binlog} --disable_log_bin=$target->{disable_log_bin} --manager_version=$MHA::ManagerConst::VERSION";
+"apply_diff_relay_logs --command=generate --scp_user=$target->{ssh_user} --scp_host=$target->{ssh_ip} --latest_mlf=$latest_slave->{Master_Log_File} --latest_rmlp=$latest_slave->{Read_Master_Log_Pos} --target_mlf=$target->{Master_Log_File} --target_rmlp=$target->{Read_Master_Log_Pos} --server_id=$latest_slave->{server_id} --diff_file_readtolatest=$target->{diff_file_readtolatest} --workdir=$latest_slave->{remote_workdir} --timestamp=$_start_datetime --handle_raw_binlog=$target->{handle_raw_binlog} --disable_log_bin=$target->{disable_log_bin} --manager_version=$MHA::ManagerConst::VERSION";
   if ( $latest_slave->{client_bindir} ) {
     $command .= " --client_bindir=$latest_slave->{client_bindir}";
   }
@@ -1071,9 +1071,50 @@ sub generate_diff_from_readpos {
     $command .= " --ssh_options='$MHA::NodeConst::SSH_OPT_ALIVE' ";
   }
   $logger->info("Executing command: $command");
-  return exec_ssh_child_cmd( $ssh_user_host, $latest_slave->{ssh_port},
+  ############
+  ($high,$low) = exec_ssh_child_cmd( $ssh_user_host, $latest_slave->{ssh_port},
     $command, $logger,
     "$g_workdir/$latest_slave->{hostname}_$latest_slave->{port}.work" );
+  if ( $high == 0 && $low == 0 ) {
+        if (
+          MHA::NodeUtil::file_copy(
+            0,$target->{diff_file_readtolatest},$target->{diff_file_readtolatest},
+            $latest_slave->{ssh_user} , $latest_slave->{ssh_ip}, $local_file,
+            $latest_slave->{ssh_port}
+          )
+          )
+        {
+          $pplog->error(
+"scp from $ssh_user_host:$target->{diff_file_readtolatest} to local:$target->{diff_file_readtolatest} failed!"
+          );
+          croak;
+        }
+        else {
+          $pplog->info(
+"scp from $ssh_user_host:$target->{diff_file_readtolatest} to local:$target->{diff_file_readtolatest} succeeded."
+          );
+
+          if (
+          MHA::NodeUtil::file_copy(
+            1,$target->{diff_file_readtolatest},$target->{diff_file_readtolatest},
+            $target->{ssh_user} , $target->{ssh_ip}, $local_file,
+            $target->{port}
+          )
+          )
+        {
+          $pplog->error(
+"scp from local:$target->{diff_file_readtolatest} to $target->{ssh_user}@$target->{ssh_ip}:$target->{diff_file_readtolatest} failed!"
+          );
+          croak;
+        }
+        else {
+          $pplog->info(
+"scp from $target->{ssh_user}@$target->{ssh_ip}:$target->{diff_file_readtolatest} to local:$target->{diff_file_readtolatest} succeeded."
+          );
+        }
+      }
+    
+  ######
 }
 
 # 0: no need to generate diff
