@@ -1076,51 +1076,41 @@ sub generate_diff_from_readpos {
     $command, $logger,
     "$g_workdir/$latest_slave->{hostname}_$latest_slave->{port}.work" );
    if ( $high == 0 && $low == 0 ) {
-        $high = 1024;
-        $slow = 1024;
-        if (
-          MHA::NodeUtil::file_copy(
+          my $pull_diff_relay_log = MHA::NodeUtil::file_copy(
             0,$target->{diff_file_readtolatest},$target->{diff_file_readtolatest},
-            $latest_slave->{ssh_user} , $latest_slave->{ssh_ip}, $local_file,
+            $latest_slave->{ssh_user} , $latest_slave->{ssh_ip}, '/dev/null',
             $latest_slave->{ssh_port}
-          )
-          )
-        {
-          $pplog->error(
-"scp from $ssh_user_host:$target->{diff_file_readtolatest} to local:$target->{diff_file_readtolatest} failed!"
           );
-          croak;
-        }
-        else {
-          $pplog->info(
-"scp from $ssh_user_host:$target->{diff_file_readtolatest} to local:$target->{diff_file_readtolatest} succeeded."
-          );
-
-          if (
-          MHA::NodeUtil::file_copy(
+          my $push_diff_relay_log = MHA::NodeUtil::file_copy(
             1,$target->{diff_file_readtolatest},$target->{diff_file_readtolatest},
-            $target->{ssh_user} , $target->{ssh_ip}, $local_file,
-            $target->{port}
-          )
-          )
-        {
-          $pplog->error(
-"scp from local:$target->{diff_file_readtolatest} to $target->{ssh_user}@$target->{ssh_ip}:$target->{diff_file_readtolatest} failed!"
+            $target->{ssh_user} , $target->{ssh_ip}, '/dev/null',
+            $latest_slave->{ssh_port}
           );
-          croak;
+          #if ( $pull_diff_relay_log == '0' ) {
+          #    print "Pull from
+          #    $latest_slave->{ssh_user}:$latest_slave->{ssh_ip}:/$target->{diff_file_readtolatest} succeeded ";
+          #    if ( $push_diff_relay_log == '0' ){
+          #        print "Push to
+          #        $target->{ssh_user}@$target->{ssh_ip}:/$target->{diff_file_readtolatest}
+          #        sucessed";
+          #        }
+          #    else{
+          #        print "Push to
+          #        $target->{ssh_user}@$target->{ssh_ip}:/$target->{diff_file_readtolatest}
+          #        failed";
+          #        }
+          #    }
+          #else{
+          #    print "Pull from
+          #    $latest_slave->{ssh_user}:$latest_slave->{ssh_ip}:/$target->{diff_file_readtolatest}
+          #     failed ";
+          #    }
+          return ($pull_diff_relay_log,$push_diff_relay_log);
         }
-        else {
-          $pplog->info(
-"scp from $target->{ssh_user}@$target->{ssh_ip}:$target->{diff_file_readtolatest} to local:$target->{diff_file_readtolatest} succeeded."
-          );
-          $high = 0;
-          $slow = 0;
+    else{
+          return (1,1);
         }
-      }
-    
   ######
-}
-  return($high,$slow);
 }
 
 # 0: no need to generate diff
@@ -1132,6 +1122,9 @@ sub recover_relay_logs {
   if ( $target->{latest} eq '0' ) {
     my ( $high, $low ) =
       generate_diff_from_readpos( $target, $latest_slave, $logger );
+    print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+    print $high;print ':';print $low;
+    print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
     if ( $high ne '0' || $low ne '0' ) {
       $logger->error(
         " Generating diff files failed with return code $high:$low.");
