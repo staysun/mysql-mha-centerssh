@@ -1,0 +1,170 @@
+#!/usr/bin/python2.6
+#-!-coding:utf8-!-
+
+
+#def get_host_list(cluster_id = None):
+#    try:
+#        import psycopg2
+#        _host = '172.17.33.166'
+#        _port = 6434
+#        _user = 'postgres'
+#        _password = '32EjrUoU%kJ3lPQ!'
+#        _db = 'jdb_backup'
+#        _conn = psycopg2.connect(host=_host,user=_user,password=_password,port=_port,database=_db)
+#        _cur = _conn.cursor()
+#        sql = '''select instance_ip,instance_port,candidate_master from mysql_instance_list
+#                    where cluster_id=%s'''%(cluster_id)
+#        _cur.execute(sql)
+#        rows=_cur.fetchall()
+#        _conn.commit()
+#    except Exception,e:
+#        print e
+#    finally:
+#        return rows 
+
+
+def get_host_list(cluster_id = None):
+    try:
+        import MySQLdb
+        _host = '172.17.XX.XXX'
+        _port = 33XX
+        _user = 'jdd_ops_r'
+        _password = 'XXXXXXXXXXXXXXX'
+        _db = 'XXX_XXX'
+        _conn = MySQLdb.connect(host=_host,user=_user,passwd=_password,port=_port,db=_db)
+        _cur = _conn.cursor(cursorclass=MySQLdb.cursors.DictCursor)
+        sql = '''select mysql_ip,mysql_port,1 "candidate_master" from jd_cluster_details where cluster_id=%s'''%(cluster_id)
+        _cur.execute(sql)
+        rows=_cur.fetchall()
+        _conn.commit()
+    except Exception,e:
+        print e
+    finally:
+        return rows 
+
+
+def get_cluster_id(mysql_ip=None,mysql_port=None):
+    try:
+        import MySQLdb
+        _host = '172.17.XX.XXX'
+        _port = 33XX
+        _user = 'jdd_ops_r'
+        _password = 'XXXXXXXXXXXXXXX'
+        _db = 'XXX_XXX'
+        _conn = MySQLdb.connect(host=_host,user=_user,passwd=_password,port=_port,db=_db)
+        _cur = _conn.cursor(cursorclass=MySQLdb.cursors.DictCursor)
+        sql = '''select cluster_id from jd_cluster_details where mysql_ip="%s" and mysql_port=%s'''%(mysql_ip,mysql_port)
+        _cur.execute(sql)
+        cluster_id_dic=_cur.fetchall()
+        _conn.commit()
+    except Exception,e:
+        print e
+    finally:
+        return cluster_id_dic
+
+def add_to_app_conf(cluster_id = None,host_port_list = None,new_master_host=None):
+    try:
+        import os
+        os.popen('echo "">./.masterha/app_%s.cnf'%(cluster_id)).read()
+        for host_port in host_port_list:
+            instance_ip=host_port.get('mysql_ip','0.0.0.0')
+            instance_port=host_port.get('mysql_port','0000')
+            candidate_master=host_port.get('candidate_master',0)
+            if new_master_host == '0':
+                if candidate_master:
+                    is_candidate_master=1
+                else:
+                    is_candidate_master=0
+            else:
+                if new_master_host==instance_ip:
+                    is_candidate_master=1
+                else:
+                    is_candidate_master=0
+            cmd='''masterha_conf_host --command=add --conf=./.masterha/app_%s.cnf --hostname=%s --block=_%s --params="port=%s;ignore_fail=1;latest_priority=0;candidate_master=%s"'''%(cluster_id,instance_ip,instance_ip,instance_port,is_candidate_master)
+            os.popen(cmd)
+    except Exception,e:
+        print e
+    finally:
+        return True 
+
+
+
+
+
+if __name__ == "__main__":
+    try:
+        import os
+        from optparse import OptionParser
+        result={'status':1}
+        opt=OptionParser()
+        opt.add_option('--cluster_id',\
+        dest = 'cluster_id',\
+        type = int,\
+        help = 'id of mysql cluster')
+        opt.add_option('--online',\
+        action="store_true", dest="online",default=False, 
+        help="set this option if master is alive")
+        opt.add_option('--port',\
+        dest = 'port',\
+        type = str,\
+        help = 'port of mysql cluster,must be set')
+        opt.add_option('--dead_master_host',\
+        dest = 'dead_master_host',\
+        type = str,\
+        help = 'ip of dead master,must be set when not set online option')
+        opt.add_option('--new_master_host',\
+        dest = 'new_master_host',\
+        type = str,\
+        help = 'ip of new master,mha will auto select one as new master when not set')
+        (options,args) = opt.parse_args()
+        my_cluster_id = options.cluster_id
+        my_port = options.port
+        my_online = options.online
+        my_dead_master = options.dead_master_host
+        my_new_master = options.new_master_host
+        if not my_port:
+            result['status']=0
+            result['info']='''port of mysql cluster must be set !!!'''
+        if not (my_dead_master or my_new_master or my_cluster_id):
+            result['status']=0
+            result['info']='''when cluster id not setted,one of dead_master_host/new_mster_host must be set !!!'''
+        if not my_online:
+            if not my_dead_master:
+                result['status']=0
+                result['info']='''dead_master_host must be set when master is dead !!!'''
+        if not my_new_master:
+            my_new_master='1'
+            result['info']='''%s\nnot set new master,new master will auto selected!'''%(result.get('info',''))
+        if result['status'] == 1:
+            if not my_cluster_id:
+                if not my_dead_master:
+                    mysql_ip=my_new_master 
+                else:
+                    mysql_ip=dead_master_host 
+                my_cluster_id=get_cluster_id(mysql_ip,my_port)[0].get('cluster_id',0)
+            host_list = get_host_list(my_cluster_id)
+            if len(host_list)>=2:
+                add_to_app_conf(my_cluster_id,host_list,my_new_master)
+                if my_online:
+                    mha_switch_cmd='''masterha_master_switch --global_conf=./.masterha/masterha_default.cnf --conf=./.masterha/app_%s.cnf --master_state=alive --interactive=0 --orig_master_is_new_slave'''%(my_cluster_id)
+                else:
+                    my_dead_master_port=3358
+                    for i in host_list:
+                        if i[0]==my_dead_master:
+                            my_dead_master_port=i[1]
+                    mha_switch_cmd='''masterha_master_switch --global_conf=./.masterha/masterha_default.cnf --conf=./.masterha/app_%s.cnf --master_state=dead --dead_master_host=%s --dead_master_port=%s --interactive=0'''%(my_cluster_id,my_dead_master,my_dead_master_port)
+                print mha_switch_cmd
+                #print os.popen(mha_switch_cmd).read()
+            else:
+                result['status']=0
+                result['info']='''%s\nonly one instance found,can not change it!!!'''%(result['info'])
+
+
+
+
+        #print my_online
+    except Exception,e:
+        print e
+    finally:
+        print result
+
