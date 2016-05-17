@@ -1386,7 +1386,7 @@ sub apply_diff {
   );
   my $command =
 #"apply_diff_relay_logs --command=apply --slave_user=$target->{escaped_user} --slave_host=$target->{hostname} --slave_ip=$target->{ip}  --slave_port=$target->{port} --apply_files=$diff_files --workdir=$target->{remote_workdir} --target_version=$target->{mysql_version} --timestamp=$_start_datetime --handle_raw_binlog=$target->{handle_raw_binlog} --disable_log_bin=$target->{disable_log_bin} --manager_version=$MHA::ManagerConst::VERSION";
-"apply_diff_relay_logs --command=apply --slave_user=$target->{escaped_user} --slave_host=$target->{hostname} --slave_ip='127.0.01'  --slave_port=$target->{port} --apply_files=$diff_files --workdir=$target->{remote_workdir} --target_version=$target->{mysql_version} --timestamp=$_start_datetime --handle_raw_binlog=$target->{handle_raw_binlog} --disable_log_bin=$target->{disable_log_bin} --manager_version=$MHA::ManagerConst::VERSION";
+"apply_diff_relay_logs --command=apply --slave_user=$target->{escaped_user} --slave_host=$target->{hostname} --slave_ip='127.0.0.1'  --slave_port=$target->{port} --apply_files=$diff_files --workdir=$target->{remote_workdir} --target_version=$target->{mysql_version} --timestamp=$_start_datetime --handle_raw_binlog=$target->{handle_raw_binlog} --disable_log_bin=$target->{disable_log_bin} --manager_version=$MHA::ManagerConst::VERSION";
   if ( $target->{client_bindir} ) {
     $command .= " --client_bindir=$target->{client_bindir}";
   }
