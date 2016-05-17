@@ -295,7 +295,9 @@ sub reject_update($$) {
     $log->info(
 "Executing master ip online change script to disable write on the current master:"
     );
-    $log->info("  $command");
+    my $encryption_command = $command;
+    $encryption_command =~ s/orig_master_password='.*'/orig_master_password='xxx'/g;
+    $log->info("  $encryption_command");
     my ( $high, $low ) = MHA::ManagerUtil::exec_system($command);
 
     if ( $high == 0 && $low == 0 ) {
@@ -410,7 +412,9 @@ sub switch_master($$$$) {
     $log->info(
 "Executing master ip online change script to allow write on the new master:"
     );
-    $log->info("  $command");
+    my $encryption_command = $command;
+    $encryption_command =~ s/orig_master_password='.*'/orig_master_password='xxx'/g;
+    $log->info("  $encryption_command");
     my ( $high, $low ) = MHA::ManagerUtil::exec_system($command);
 
     if ( $high == 0 && $low == 0 ) {

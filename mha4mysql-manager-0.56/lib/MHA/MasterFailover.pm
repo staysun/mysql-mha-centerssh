@@ -1122,9 +1122,6 @@ sub recover_relay_logs {
   if ( $target->{latest} eq '0' ) {
     my ( $high, $low ) =
       generate_diff_from_readpos( $target, $latest_slave, $logger );
-    print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-    print $high;print ':';print $low;
-    print "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
     if ( $high ne '0' || $low ne '0' ) {
       $logger->error(
         " Generating diff files failed with return code $high:$low.");
@@ -1388,7 +1385,8 @@ sub apply_diff {
 "Connecting to the target slave host $target->{hostname}, running recover script.."
   );
   my $command =
-"apply_diff_relay_logs --command=apply --slave_user=$target->{escaped_user} --slave_host=$target->{hostname} --slave_ip='127.0.0.1'  --slave_port=$target->{port} --apply_files=$diff_files --workdir=$target->{remote_workdir} --target_version=$target->{mysql_version} --timestamp=$_start_datetime --handle_raw_binlog=$target->{handle_raw_binlog} --disable_log_bin=$target->{disable_log_bin} --manager_version=$MHA::ManagerConst::VERSION";
+#"apply_diff_relay_logs --command=apply --slave_user=$target->{escaped_user} --slave_host=$target->{hostname} --slave_ip=$target->{ip}  --slave_port=$target->{port} --apply_files=$diff_files --workdir=$target->{remote_workdir} --target_version=$target->{mysql_version} --timestamp=$_start_datetime --handle_raw_binlog=$target->{handle_raw_binlog} --disable_log_bin=$target->{disable_log_bin} --manager_version=$MHA::ManagerConst::VERSION";
+"apply_diff_relay_logs --command=apply --slave_user=$target->{escaped_user} --slave_host=$target->{hostname} --slave_ip='127.0.01'  --slave_port=$target->{port} --apply_files=$diff_files --workdir=$target->{remote_workdir} --target_version=$target->{mysql_version} --timestamp=$_start_datetime --handle_raw_binlog=$target->{handle_raw_binlog} --disable_log_bin=$target->{disable_log_bin} --manager_version=$MHA::ManagerConst::VERSION";
   if ( $target->{client_bindir} ) {
     $command .= " --client_bindir=$target->{client_bindir}";
   }
@@ -1613,7 +1611,9 @@ sub recover_master($$$$) {
       $dead_master->get_ssh_args_if( 1, "orig", $_real_ssh_reachable );
     $command .= $new_master->get_ssh_args_if( 2, "new", 1 );
     $log->info("Executing master IP activate script:");
-    $log->info("  $command");
+    my $encryption_command = $command;
+    $encryption_command =~ s/new_master_password='.*'/new_master_password='xxx'/g;
+    $log->info("  $encryption_command");
     my ( $high, $low ) = MHA::ManagerUtil::exec_system( $command, $g_logfile );
     if ( $high == 0 && $low == 0 ) {
       $log->info(" OK.");
