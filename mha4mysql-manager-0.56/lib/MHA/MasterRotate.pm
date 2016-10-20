@@ -727,6 +727,7 @@ sub main {
     print "--conf=<server_config_file> must be set.\n";
     return 1;
   }
+  #print $g_logfile;
   my ( $year, $mon, @time ) = reverse( (localtime)[ 0 .. 5 ] );
   $start_datetime = sprintf '%04d%02d%02d%02d%02d%02d', $year + 1900, $mon + 1,
     @time;
